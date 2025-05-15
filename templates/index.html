@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="/static/bootstrap.min.css">
+    <style>
+      .bd-placeholder-img {
+        font-size: 1.125rem;
+        text-anchor: middle;
+      }
+
+      @media (min-width: 768px) {
+        .bd-placeholder-img-lg {
+          font-size: 3.5rem;
+        }
+      }
+    </style>
+    <link rel="stylesheet" href="/static/style.css">
+    <title>yolov3 object detection</title>
+  </head>
+  <body class="text-center">
+    <form class="form-signin" method=post enctype=multipart/form-data>
+        <img class="mb-4" src="/static/pytorch.png" alt="" width="72">
+        <h1 class="h3 mb-3 font-weight-normal">Upload an image</h1>
+        <input type="file" name="file" class="form-control-file" id="inputfile">
+        <br/>
+        <img id="preview" src="#" alt="Preview" style="max-width: 100%; height: auto;">
+        <br/>
+        <br/>
+        <button class="btn btn-lg btn-primary btn-block" type="button" onclick="uploadImage()">Upload</button>
+        <p class="mt-5 mb-3 text-muted" id="results">results</p>
+    </form>
+
+    <script src="//code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="/static/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+      $('#inputfile').bind('change', function() {
+          let ext = $('#inputfile').val().split('.').pop().toLowerCase();
+          if($.inArray(ext, ['jpg','jpeg', 'png']) == -1) {
+            $("#inputfile").val(null);
+            alert('only jpeg/jpg/png files are allowed!');
+          }
+      });
+    </script>
+
+    <script>
+      function uploadImage() {
+          const input = document.getElementById('inputfile');
+          if (input.files && input.files[0]) {
+              const reader = new FileReader();
+              reader.onload = function(e) {
+                  const imageBase64 = e.target.result.split(',')[1]; // 移除 Base64 URL 的前缀
+                  sendImage(imageBase64);
+              };
+              reader.readAsDataURL(input.files[0]); // readAsDataURL function can read the file and converts it to Base64
+          }
+
+          var preview = document.getElementById('preview');
+        
+          var file = input.files[0];
+          var reader = new FileReader();
+          
+          reader.onload = function(e) {
+              preview.src = e.target.result;
+          }
+          
+          reader.readAsDataURL(file);
+      }
+
+      function sendImage(imageBase64) {
+          const host = window.location.hostname;
+          const url = `http://${host}:5000/api/object_detection`;
+          // const url = 'http://localhost:5000/api/object_detection';
+          const payload = {
+              id: uuidv4(), // a new UUID is generated for each image request
+              image: imageBase64
+          };
+
+
+          fetch(url, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload),
+          })
+          .then(response => response.json())
+          .then(data => {
+              console.log('Success:', data);
+              displayResults(data);
+          })
+          .catch((error) => {
+              console.error('Error:', error);
+          });
+          console.log(payload)
+      }
+
+      function uuidv4() {
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+          });
+      }
+
+      function displayResults(data) {
+        const resultsElement = document.getElementById('results');
+        resultsElement.innerHTML = '';
+    
+        if (data.objects && data.objects.length > 0) {
+            data.objects.forEach(obj => {
+                const objElement = document.createElement('div');
+                objElement.classList.add('result-item');
+                objElement.innerHTML = `
+                    <p>id: ${data.id}</p>
+                    <p>Label: ${obj.label}</p>
+                    <p>Accuracy: ${(obj.accuracy * 100).toFixed(2)}%</p>
+                    <p>Rectangle: [Left: ${obj.rectangle.left}, Top: ${obj.rectangle.top}, Width: ${obj.rectangle.width}, Height: ${obj.rectangle.height}]</p>
+                `;
+                resultsElement.appendChild(objElement);
+            });
+        } else {
+            resultsElement.innerHTML = '<p>No objects detected</p>';
+        }
+    }
+    
+  </script>
+
+  </body>
+</html>
